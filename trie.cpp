@@ -17,7 +17,7 @@ struct lctrie {
     };
 
     // this should be packed for space savings
-    using key_data_type = struct key_data {
+    using data_type = struct data {
         key_type key,
         offset_type offset
     };
@@ -32,8 +32,10 @@ struct lctrie {
     uint32_t extract(uint8_t pos, uint8_t branch, key_type k);
 
     std::unique_ptr<std::vector<node_type>> m_nodes;
-    std::unique_ptr<std::vector<key_data_type>> m_keys;
+    std::unique_ptr<std::vector<data_type>> m_data;
     std::unique_ptr<std::vector<value_type>> m_vals;
+
+    using data_cit = std::vector<data_type>::const_iterator;
 };
 
 /*
@@ -123,46 +125,44 @@ auto lctrie::compute_skip(
  * 01xxxxx, and thus the range covers at most 3 two-bit
  * values. The case where last = 10xxxxxx is similar
  */
-auto lctrie::compute_branch(
+
+size_t
+lctrie::find_fork(
     const size_t first,
-    const size_t nkeys,
-    const size_t pre,
-    const size_t skip)
+    const size_t last,
+    const size_t suffix_len)
 {
-    const auto mask = 0xC0000000U;
-    const auto shift = pre + skip;
+    auto prefix = m_keys[first] & ~((1U << suffix_len) - 1);
+    auto mask = (1U << (suffix_len - 1U));
+    auto fork = std::lower_bound(first, last, prefix | mask);
 
-    auto low = (m_keys[first] << shift) & mask;
-    if (low) {
-        return 1;
-    }
 
-    auto begin = std::next(m_keys.cbegin(), first);
-    auto end = std::next(begin, nkeys - 1);
-    auto cmp = [&](key_type k){ return ((k << shift) & mask) == 0U; };
-    auto part = std::partition_point(begin, end, cmp);
 
-    if (((*part << shift) & mask) != 0x40000000U) {
-        return 1;
-    }
+}
 
-    cmp = [&](key_type k){ return ((k << shift) & mask) == 0x40000000U; };
-    part = std::partition_point(part, end, cmp);
+auto lctrie::compute_branch(
+    size_t first,
+    size_t last,
+    size_t prefix_len)
+{
+    std::vector<size_t> ranges = { first, last };
+    auto suffix_len = KEY_BITS - prefix_len;
 
-    if (((*part << shift) & mask) != 0x80000000U) {
-        return 1;
-    }
+    for (auto i = 0U; i < ranges.size() - 1U; i += 2U) {
 
-    cmp = [&](key_type k){ return ((k << shift) & mask) == 0x80000000U; };
-    part = std::partition_point(part, end, cmp);
+    while (suffix_len > 1) {
+        auto fork = find_fork(first, last, suffix_len);
+        auto
 
-    if (part == end) {
-        return 1;
-    }
 
-    return 2;
 
-    //recursive case????
+
+
+    branch++;
+
+
+
+
 }
 
 void
